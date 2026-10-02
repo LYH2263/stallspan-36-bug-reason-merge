@@ -19,9 +19,9 @@ REASON_CLEARANCE = "clearance"
 REASON_POWER = "power"
 
 REASON_LABELS = {
-    REASON_SPAN: "放不下",
-    REASON_CLEARANCE: "放不下",
-    REASON_POWER: "放不下",
+    REASON_SPAN: "空档连续长度不足",
+    REASON_CLEARANCE: "消防净距不足",
+    REASON_POWER: "供电覆盖不足",
 }
 # 短路顺序：下标越小越优先。同时满足多类时只保留最靠前的一类。
 REASON_PRECEDENCE = (REASON_POWER, REASON_CLEARANCE, REASON_SPAN)
@@ -263,7 +263,10 @@ def allocate_first_fit(width_m: float, vendors: list[dict], pillars: list[dict],
             placements.append(Placement(v["id"], v["name"], round(cand, 3), round(end, 3),
                                          need, bool(v.get("needs_power"))))
         else:
-            code = REASON_SPAN
+            # 与放置扫描同一函数、同一份 remain 诊断；短路顺序 power > clearance > span，
+            # 一条拒绝只带一个 code，绝不另立页面专用判定。
+            code = _diagnose(remain, need, clearance_m=clearance_m,
+                             power_on=power_on, powered=powered)
             rejected.append(Rejected(v["id"], v["name"], need, code, REASON_LABELS[code]))
     free = [(round(a, 3), round(b, 3)) for a, b, _pl, _pr in remain if b - a > 1e-6]
     return AllocResult(placements, rejected, free, clearance_m=clearance_m,
